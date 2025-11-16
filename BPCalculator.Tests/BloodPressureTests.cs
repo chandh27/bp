@@ -35,6 +35,14 @@ namespace BPCalculator.Tests
             var bp = new BloodPressure { Systolic = 200, Diastolic = 70 };
             Assert.Throws<ArgumentOutOfRangeException>(() => bp.Category);
         }
+//test4
+        [Fact]
+        public void Throws_When_Diastolic_Above_Max()
+        {
+            var bp = new BloodPressure { Systolic = 120, Diastolic = 110 };
+            Assert.Throws<ArgumentOutOfRangeException>(() => bp.Category);
+        }
+
 
     }
 }
