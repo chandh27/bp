@@ -25,21 +25,40 @@ namespace BPCalculator
 
         [Range(DiastolicMin, DiastolicMax, ErrorMessage = "Invalid Diastolic Value")]
         public int Diastolic { get; set; }                      // mmHG
-
+        
         // calculate BP category
         public BPCategory Category
         {
             get
             {
-               if (Systolic >= 140 || Diastolic >= 90)
-                    return BPCategory.High;
-                else if (Systolic >= 120 || Diastolic >= 80)
-                    return BPCategory.PreHigh;
-                else if (Systolic >= 90 && Diastolic >= 60)
+                // ✅ Validation: ensure within valid range
+                if (Systolic < SystolicMin || Systolic > SystolicMax)
+                    throw new ArgumentOutOfRangeException(nameof(Systolic), $"Systolic value must be between {SystolicMin} and {SystolicMax} mmHg.");
+
+                if (Diastolic < DiastolicMin || Diastolic > DiastolicMax)
+                    throw new ArgumentOutOfRangeException(nameof(Diastolic), $"Diastolic value must be between {DiastolicMin} and {DiastolicMax} mmHg.");
+
+                // ✅ Logical validation
+                if (Diastolic >= Systolic)
+                    throw new ArgumentException("Diastolic pressure cannot be greater than or equal to systolic pressure.");
+
+                // ✅ Blood Pressure Category Logic
+                if (Systolic < 90 || Diastolic < 60)
+                    return BPCategory.Low;
+
+                if ((Systolic >= 90 && Systolic <= 120) && (Diastolic >= 60 && Diastolic <= 80))
                     return BPCategory.Ideal;
-                else
-                    return BPCategory.Low; 
+
+                if ((Systolic > 120 && Systolic < 140) || (Diastolic > 80 && Diastolic < 90))
+                    return BPCategory.PreHigh;
+
+                if (Systolic >= 140 || Diastolic >= 90)
+                    return BPCategory.High;
+
+                // Fallback (should never hit)
+                throw new InvalidOperationException("Unable to determine blood pressure category.");
             }
         }
+
     }
 }
