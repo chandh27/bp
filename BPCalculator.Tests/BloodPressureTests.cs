@@ -14,10 +14,18 @@ namespace BPCalculator.Tests
             var bp = new BloodPressure { Systolic = sys, Diastolic = dia };
             Assert.Equal(expected, bp.Category);
         }
+//test1
         [Fact]
         public void Throws_When_Diastolic_GTE_Systolic()
         {
             var bp = new BloodPressure { Systolic = 100, Diastolic = 120 };
+            Assert.Throws<ArgumentOutOfRangeException>(() => bp.Category);
+        }
+//test2
+        [Fact]
+        public void Throws_When_Systolic_Below_Min()
+        {
+            var bp = new BloodPressure { Systolic = 60, Diastolic = 70 };
             Assert.Throws<ArgumentOutOfRangeException>(() => bp.Category);
         }
     }
