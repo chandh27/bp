@@ -1,10 +1,9 @@
-name: CI Build and Unit Tests
+name: CI
 
 on:
   pull_request:
     branches:
       - master
-
 
 jobs:
   build-test:
@@ -13,17 +12,35 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+        
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-
+          
       - name: Restore dependencies
         run: dotnet restore
 
       - name: Build solution
         run: dotnet build --configuration Release --no-restore
 
-      - name: Run Unit Tests
-        run: dotnet test --no-build --configuration Release
+      - name: Create Test Results Folder
+        run: mkdir TestResults
+
+      - name: Run Unit & BDD Tests (TRX output)
+        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test_results.trx"
+
+      - name: Upload Test Results (Unit + BDD)
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: "**/*.trx"
+
+      - name: Run Tests with Coverage
+        run: dotnet test --collect:"XPlat Code Coverage"
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-cobertura
+          path: "**/coverage.cobertura.xml"
