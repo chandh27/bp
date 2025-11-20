@@ -1,43 +1,99 @@
-name: CI
+name: CI - Build, Unit + BDD Tests, SonarCloud
 
 on:
   pull_request:
     branches:
       - master
+  push:
+    branches:
+      - master
 
 jobs:
-  build-test:
+  build-test-sonar:
     runs-on: ubuntu-latest
 
     steps:
+      # -----------------------------
+      # Checkout
+      # -----------------------------
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 0   # required for proper blame/coverage in SonarCloud
+
+      # -----------------------------
+      # .NET SDK
+      # -----------------------------
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-          
+
+      # -----------------------------
+      # SonarCloud scanner
+      # -----------------------------
+      - name: Install dotnet-sonarscanner
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Add dotnet tools to PATH
+        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      # -----------------------------
+      # Restore
+      # -----------------------------
       - name: Restore dependencies
         run: dotnet restore
 
+      # -----------------------------
+      # SonarCloud BEGIN
+      # -----------------------------
+      - name: SonarCloud - Begin analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_ORG: ${{ secrets.SONAR_ORG }}
+        run: |
+          dotnet-sonarscanner begin \
+            /k:"$SONAR_PROJECT_KEY" \
+            /o:"$SONAR_ORG" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.token="$SONAR_TOKEN" \
+            /d:sonar.cs.opencover.reportsPaths="**/coverage.cobertura.xml"
+
+      # -----------------------------
+      # Build
+      # -----------------------------
       - name: Build solution
         run: dotnet build --configuration Release --no-restore
 
-      - name: Create Test Results Folder
-        run: mkdir TestResults
-
-      - name: Run Unit & BDD Tests (TRX output)
+      # -----------------------------
+      # Unit + BDD tests (TRX report)
+      # -----------------------------
+      - name: Run Unit & BDD Tests (TRX)
         run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test_results.trx"
 
+      # -----------------------------
+      # Coverage run (for SonarCloud)
+      # -----------------------------
+      - name: Run Tests with Coverage
+        run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+
+      # -----------------------------
+      # SonarCloud END
+      # -----------------------------
+      - name: SonarCloud - End analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+
+      # -----------------------------
+      # Upload test + coverage artifacts
+      # -----------------------------
       - name: Upload Test Results (Unit + BDD)
         uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: "**/*.trx"
-
-      - name: Run Tests with Coverage
-        run: dotnet test --collect:"XPlat Code Coverage"
 
       - name: Upload Coverage Report
         uses: actions/upload-artifact@v4
