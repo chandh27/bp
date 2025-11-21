@@ -1,100 +1,161 @@
-name: CI - Build, Unit + BDD Tests, SonarCloud
+name: CI - Build, Tests, Coverage, SonarCloud 
 
-on:
-  pull_request:
-    branches:
-      - master
-  push:
-    branches:
-      - master
+ 
 
-jobs:
-  build-test-sonar:
-    runs-on: ubuntu-latest
+on: 
 
-    steps:
+  push: 
 
-      # Checkout
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    branches: [ master ] 
 
-      # .NET Setup
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+  pull_request: 
 
-      # SonarCloud scanner
-      - name: Install dotnet-sonarscanner
-        run: dotnet tool install --global dotnet-sonarscanner
+    branches: [ master ] 
 
-      - name: Add dotnet tools to PATH
-        run: echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+ 
 
-      # Install ReportGenerator (for Cobertura)
-      - name: Install ReportGenerator
-        run: dotnet tool install --global dotnet-reportgenerator-globaltool
+jobs: 
 
-      # Restore
-      - name: Restore dependencies
-        run: dotnet restore
+  build-test-sonar: 
 
-      # SonarCloud Begin
-      - name: SonarCloud - Begin analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
-          SONAR_ORG: ${{ secrets.SONAR_ORG }}
-        run: |
-          dotnet-sonarscanner begin \
-            /k:"$SONAR_PROJECT_KEY" \
-            /o:"$SONAR_ORG" \
-            /d:sonar.host.url="https://sonarcloud.io" \
-            /d:sonar.token="$SONAR_TOKEN" \
-            /d:sonar.cs.opencover.reportsPaths="CoverageReport/Cobertura.xml"
+    runs-on: ubuntu-latest 
 
-      # Build
-      - name: Build solution
-        run: dotnet build --configuration Release --no-restore
+ 
 
-      # Unit + BDD Tests (TRX)
-      - name: Run Unit & BDD Tests (TRX)
-        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test_results.trx"
+    steps: 
 
-      # Coverage
-      - name: Run Tests with Coverage (OpenCover)
-        run: |
-          dotnet test \
-            --no-build \
-            --configuration Release \
-            --collect:"XPlat Code Coverage" \
-            --results-directory TestResults
+ 
 
-      # Convert to Cobertura
-      - name: Convert Coverage to Cobertura
-        run: |
-          reportgenerator \
-            -reports:TestResults/**/coverage.cobertura.xml \
-            -targetdir:CoverageReport \
-            -reporttypes:Cobertura
+      - name: Checkout 
 
-      # SonarCloud End
-      - name: SonarCloud - End analysis
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: dotnet-sonarscanner end /d:sonar.token="$SONAR_TOKEN"
+        uses: actions/checkout@v4 
 
-      # Upload artifacts
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: "**/*.trx"
+        with: 
 
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: CoverageReport/**
+          fetch-depth: 0 
+
+ 
+
+      - name: Setup .NET 
+
+        uses: actions/setup-dotnet@v4 
+
+        with: 
+
+          dotnet-version: '8.0.x' 
+
+ 
+
+      - name: Install Tools 
+
+        run: | 
+
+          dotnet tool install --global dotnet-sonarscanner 
+
+          dotnet tool install --global coverlet.console 
+
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH 
+
+ 
+
+      - name: Restore 
+
+        run: dotnet restore 
+
+ 
+
+      - name: SonarCloud Begin 
+
+        env: 
+
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
+
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }} 
+
+          SONAR_ORG: ${{ secrets.SONAR_ORG }} 
+
+        run: | 
+
+          dotnet-sonarscanner begin \ 
+
+            /k:"${SONAR_PROJECT_KEY}" \ 
+
+            /o:"${SONAR_ORG}" \ 
+
+            /d:sonar.host.url="https://sonarcloud.io" \ 
+
+            /d:sonar.token="${SONAR_TOKEN}" \ 
+
+            /d:sonar.cs.opencover.reportsPaths="TestReports/coverage.opencover.xml" 
+
+ 
+
+      - name: Build 
+
+        run: dotnet build --configuration Release --no-restore 
+
+ 
+
+      - name: Run Unit + BDD Tests 
+
+        run: | 
+
+          mkdir -p TestReports 
+
+          dotnet test BPCalculator.Tests/BPCalculator.Tests.csproj \ 
+
+            --configuration Release \ 
+
+            --logger "trx;LogFileName=test_results.trx" \ 
+
+            --no-build \ 
+
+            --results-directory TestReports 
+
+ 
+
+      - name: Generate OpenCover Coverage (REAL!) 
+
+        run: | 
+
+          mkdir -p TestReports 
+
+          coverlet \ 
+
+            BPCalculator.Tests/bin/Release/net9.0/BPCalculator.Tests.dll \ 
+
+            --target "dotnet" \ 
+
+            --targetargs "test BPCalculator.Tests/BPCalculator.Tests.csproj --no-build --configuration Release" \ 
+
+            --format opencover \ 
+
+            --output TestReports/coverage.opencover.xml 
+
+ 
+
+      - name: List TestReports 
+
+        run: ls -R TestReports 
+
+ 
+
+      - name: SonarCloud End 
+
+        env: 
+
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }} 
+
+        run: dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}" 
+
+ 
+
+      - name: Upload Artifacts 
+
+        uses: actions/upload-artifact@v4 
+
+        with: 
+
+          name: test-results 
+
+          path: TestReports/ 
