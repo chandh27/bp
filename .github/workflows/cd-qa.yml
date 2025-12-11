@@ -17,9 +17,8 @@ env:
   FULL_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/bp-calculator:latest
   AZURE_WEBAPP_NAME: bp-calculator-qa
 
-#######################################################################
-#                               CI JOB                                #
-#######################################################################
+
+#CI JOB
 jobs:
   build-test-sonar:
     name: CI - Build, Tests, Coverage, SonarCloud
@@ -100,9 +99,8 @@ jobs:
           name: published-app
           path: published-app/
 
-#######################################################################
-#                         CD: QA ARTIFACT DOWNLOAD                    #
-#######################################################################
+
+#CD: QA ARTIFACT DOWNLOAD
   download:
     name: CD - Download Build Artifact
     runs-on: ubuntu-latest
@@ -117,9 +115,8 @@ jobs:
       - name: List Downloaded Files
         run: ls -R ./published-app
 
-#######################################################################
-#                         CD: BUILD & PUSH IMAGE                     #
-#######################################################################
+
+#CD: BUILD & PUSH IMAGE
   docker:
     name: CD - Build & Push Docker Image
     runs-on: ubuntu-latest
@@ -135,9 +132,8 @@ jobs:
       - name: Push Docker Image
         run: docker push $FULL_IMAGE
 
-#######################################################################
-#                     CD: DEPLOY CONTAINER TO AZURE                 #
-#######################################################################
+
+#CD: DEPLOY CONTAINER TO AZURE
   deploy:
     name: CD - Deploy to Azure App Service
     runs-on: ubuntu-latest
@@ -150,16 +146,54 @@ jobs:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_QA }}
           images: ${{ env.FULL_IMAGE }}
-      - name: Smoke Test After Deployment
+      - name: Smoke Test After Deployment (Health Check)
         run: |
-          URL="https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net"
-          echo "Testing $URL"
-          for i in {1..10}; do
+          URL="https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net/health"
+          echo "Checking health: $URL"
+          for i in {1..15}; do
             echo "Attempt $i..."
-            curl -I $URL && break
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+            if [ "$STATUS" == "200" ]; then
+              echo "Health Check PASSED (HTTP 200)"
+              exit 0
+            fi
+            echo "Health Check FAILED (Status: $STATUS). Retrying in 10 sec..."
             sleep 10
           done
+          echo "Health check failed after multiple retries. Deployment unhealthy."
+          exit 1
       - name: Final Status
         run: |
-          STATUS=$(curl -I -s https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net | head -n 1)
-          echo "App Response = $STATUS"
+          STATUS=$(curl -I -s https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net/health | head -n 1)
+          echo "Final App Response = $STATUS"
+
+# CD: RUN E2E SELENIUM TESTS ON QA                    
+  e2e-tests:
+    name: CD - Run E2E Selenium Tests on QA
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.ref == 'refs/heads/QA'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install Chrome + ChromeDriver
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+      - name: Ensure TestResults directory exists
+        run: mkdir -p BPCalculator.E2E/TestResults
+      - name: Run Selenium E2E Tests
+        run: |
+          dotnet test BPCalculator.E2E/BPCalculator.E2E.csproj \
+            --logger "trx;LogFileName=e2e_results.trx" \
+            --results-directory BPCalculator.E2E/TestResults/
+      - name: Upload E2E Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-results
+          path: BPCalculator.E2E/TestResults/
