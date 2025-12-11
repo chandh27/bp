@@ -15,9 +15,9 @@ env:
   DOCKER_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   IMAGE_NAME: bp-calculator
   FULL_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/bp-calculator:latest
-  AZURE_WEBAPP_NAME: bp-calculator-qa
-  AZURE_WEBAPP_STAGING: bp-calculator-prod
-  AZURE_WEBAPP_PROD: bp-calculator-prod
+  AZURE_WEBAPP_NAME: bp-calculator-qa-cst
+  AZURE_WEBAPP_STAGING: bp-calculator-prod-cst
+  AZURE_WEBAPP_PROD: bp-calculator-prod-cst
   AZURE_SLOT_NAME: blue
 jobs:
   ###########################################################
@@ -139,7 +139,7 @@ jobs:
           images: ${{ env.FULL_IMAGE }}
       - name: Health Check QA
         run: |
-          URL="https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net/health"
+          URL="https://bp-calculator-qa-cst-bverd2gge3dwftec.norwayeast-01.azurewebsites.net/health"
           for i in {1..15}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
             if [ "$STATUS" == "200" ]; then exit 0; fi
@@ -234,7 +234,7 @@ jobs:
           images: ${{ env.FULL_IMAGE }}
       - name: Staging Health Check
         run: |
-          URL="https://bp-calculator-prod-blue-a4hfczasfpdwavdt.norwayeast-01.azurewebsites.net/health"
+          URL="https://bp-calculator-prod-cst-blue-g9e6dabjadbgd6ct.norwayeast-01.azurewebsites.net/health"
           for i in {1..15}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
             if [ "$STATUS" == "200" ]; then exit 0; fi
@@ -261,7 +261,7 @@ jobs:
           images: ${{ env.FULL_IMAGE }}
       - name: Production Health Check
         run: |
-          URL="https://bp-calculator-prod-c6f4f9gqbmc0fadn.norwayeast-01.azurewebsites.net/health"
+          URL="https://bp-calculator-prod-cst-hgb9ggfqdnfrf8g8.norwayeast-01.azurewebsites.net/health"
           for i in {1..15}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
             if [ "$STATUS" == "200" ]; then exit 0; fi
