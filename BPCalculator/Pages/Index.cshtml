@@ -14,25 +14,27 @@
 
             <div class="form-group">
                 <label asp-for="BP.Systolic" class="control-label"></label>
-                <input asp-for="BP.Systolic" id="Systolic" class="form-control" />
+                <input asp-for="BP.Systolic" class="form-control" />
                 <span asp-validation-for="BP.Systolic" class="text-danger"></span>
             </div>
 
             <div class="form-group">
                 <label asp-for="BP.Diastolic" class="control-label"></label>
-                <input asp-for="BP.Diastolic" id="Diastolic" class="form-control" />
+                <input asp-for="BP.Diastolic" class="form-control" />
                 <span asp-validation-for="BP.Diastolic" class="text-danger"></span>
             </div>
 
             <div class="form-group">
-                <button type="submit" id="CalculateButton" class="btn btn-primary">Calculate</button>
+                <button type="submit" id="CalculateButton" class="btn btn-primary">
+                    Calculate
+                </button>
             </div>
 
-            @if (ViewData.ModelState.IsValid)
+            @if (Model.BP != null)
             {
                 <div class="form-group">
                     <p id="ResultText" class="alert alert-info">
-                        @Model.BP.Category
+                        @Model.BP.Category.ToString()
                     </p>
                 </div>
             }
