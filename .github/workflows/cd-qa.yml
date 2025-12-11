@@ -197,3 +197,51 @@ jobs:
         with:
           name: e2e-results
           path: BPCalculator.E2E/TestResults/
+
+# CD: RUN LOAD TEST (k6) ON QA
+  load-test:
+    name: CD - Run Load Test (k6)
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+    if: github.ref == 'refs/heads/QA'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Install K6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg2 ca-certificates
+          # Add K6 signing key properly
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          # Add K6 repo
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install -y k6
+
+      - name: Run Load Test (k6)
+        run: |
+          echo "Running k6 load test..."
+          k6 run loadtest.js
+      - name: Upload Load Test Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: load-test-results
+          path: ./ # if your script outputs files, update this
+# CD: SECURITY TEST - OWASP ZAP SCAN
+  zap-scan:
+    name: CD - OWASP ZAP DAST Scan
+    runs-on: ubuntu-latest
+    needs: e2e-tests
+    if: github.ref == 'refs/heads/QA'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      - name: Run OWASP ZAP Baseline Scan
+        run: |
+          chmod +x zap-scan.sh
+          ./zap-scan.sh
+      - name: Upload ZAP Security Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-security-report
+          path: zap-output/
