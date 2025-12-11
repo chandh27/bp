@@ -1,58 +1,38 @@
 ﻿@page
 @model BPCalculator.Pages.BloodPressureModel
-
 @{
     ViewData["Title"] = "BP Category Calculator";
 }
-
 <h4>BP Category Calculator</h4>
 <hr />
 <div class="row">
     <div class="col-md-4">
         <form method="post" id="form1">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
-
-            <!-- Systolic Input -->
             <div class="form-group">
                 <label asp-for="BP.Systolic" class="control-label"></label>
                 <input asp-for="BP.Systolic" id="Systolic" class="form-control" />
                 <span asp-validation-for="BP.Systolic" class="text-danger"></span>
             </div>
-
-            <!-- Diastolic Input -->
             <div class="form-group">
                 <label asp-for="BP.Diastolic" class="control-label"></label>
                 <input asp-for="BP.Diastolic" id="Diastolic" class="form-control" />
                 <span asp-validation-for="BP.Diastolic" class="text-danger"></span>
             </div>
-
-            <!-- Submit Button -->
             <div class="form-group">
-                <button type="submit" id="CalculateButton" class="btn btn-primary">
-                    Calculate
-                </button>
+                <button type="submit" id="CalculateButton" class="btn btn-primary">Calculate</button>
             </div>
-
-            <!-- Results Section -->
             @if (ViewData.ModelState.IsValid)
             {
                 <div class="form-group">
-
-                    <!-- Category Output -->
                     <p id="ResultText" class="alert alert-info">
                         @Model.BP.Category
-                    </p>
-
-                    <!-- NEW FEATURE: Risk Message Output -->
-                    <p id="RiskText" class="alert alert-warning">
-                        @Model.BP.RiskMessage
                     </p>
                 </div>
             }
         </form>
     </div>
 </div>
-
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 }

@@ -4,12 +4,13 @@ using System.Diagnostics;
 
 namespace BPCalculator
 {
+    // BP categories
     public enum BPCategory
     {
         [Display(Name="Low Blood Pressure")] Low,
-        [Display(Name="Ideal Blood Pressure")] Ideal,
+        [Display(Name="Ideal Blood Pressure")]  Ideal,
         [Display(Name="Pre-High Blood Pressure")] PreHigh,
-        [Display(Name ="High Blood Pressure")] High
+        [Display(Name ="High Blood Pressure")]  High
     };
 
     public class BloodPressure
@@ -20,43 +21,44 @@ namespace BPCalculator
         public const int DiastolicMax = 100;
 
         [Range(SystolicMin, SystolicMax, ErrorMessage = "Invalid Systolic Value")]
-        public int Systolic { get; set; }
+        public int Systolic { get; set; }                       // mmHG
 
         [Range(DiastolicMin, DiastolicMax, ErrorMessage = "Invalid Diastolic Value")]
-        public int Diastolic { get; set; }
-
+        public int Diastolic { get; set; }                      // mmHG
+        
+        // calculate BP category
         public BPCategory Category
         {
             get
             {
+                // ✅ Validation: ensure within valid range
                 if (Systolic < SystolicMin || Systolic > SystolicMax)
-                    throw new ArgumentOutOfRangeException(nameof(Systolic));
+                    throw new ArgumentOutOfRangeException(nameof(Systolic), $"Systolic value must be between {SystolicMin} and {SystolicMax} mmHg.");
+
                 if (Diastolic < DiastolicMin || Diastolic > DiastolicMax)
-                    throw new ArgumentOutOfRangeException(nameof(Diastolic));
+                    throw new ArgumentOutOfRangeException(nameof(Diastolic), $"Diastolic value must be between {DiastolicMin} and {DiastolicMax} mmHg.");
+
+                // ✅ Logical validation
                 if (Diastolic >= Systolic)
-                    throw new ArgumentException("Diastolic pressure cannot be greater than or equal to systolic.");
+                    throw new ArgumentException("Diastolic pressure cannot be greater than or equal to systolic pressure.");
 
-                if (Systolic < 90 || Diastolic < 60) return BPCategory.Low;
-                if (Systolic <= 120 && Diastolic <= 80) return BPCategory.Ideal;
-                if (Systolic < 140 || Diastolic < 90) return BPCategory.PreHigh;
-                return BPCategory.High;
+                // ✅ Blood Pressure Category Logic
+                if (Systolic < 90 || Diastolic < 60)
+                    return BPCategory.Low;
+
+                if ((Systolic >= 90 && Systolic <= 120) && (Diastolic >= 60 && Diastolic <= 80))
+                    return BPCategory.Ideal;
+
+                if ((Systolic > 120 && Systolic < 140) || (Diastolic > 80 && Diastolic < 90))
+                    return BPCategory.PreHigh;
+
+                if (Systolic >= 140 || Diastolic >= 90)
+                    return BPCategory.High;
+
+                // Fallback (should never hit)
+                throw new InvalidOperationException("Unable to determine blood pressure category.");
             }
         }
 
-        // NEW FEATURE (11 lines)
-        public string RiskMessage
-        {
-            get
-            {
-                return Category switch
-                {
-                    BPCategory.Low     => "Risk: Hypotension – may cause dizziness.",
-                    BPCategory.Ideal   => "Risk: Normal – maintain a healthy lifestyle.",
-                    BPCategory.PreHigh => "Risk: Elevated – monitor your BP regularly.",
-                    BPCategory.High    => "Risk: Hypertension – medical attention may be required.",
-                    _ => "Risk: Unknown"
-                };
-            }
-        }
     }
 }
