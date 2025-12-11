@@ -11,7 +11,7 @@ namespace BPCalculator.E2E
         private readonly IWebDriver _driver;
         // QA URL
         private const string QA_URL =
-            "https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net/";
+            "https://bp-calculator-qa-cst-bverd2gge3dwftec.norwayeast-01.azurewebsites.net/";
         public CalculatorUITests()
         {
             var options = new ChromeOptions();
