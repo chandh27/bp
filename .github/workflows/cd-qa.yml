@@ -1,4 +1,4 @@
-name: CI-CD Pipeline (Build, Test, Container Deploy)
+name: CI-CD Pipeline (Build, Test, Deploy)
 on:
   push:
     branches:
@@ -16,20 +16,21 @@ env:
   IMAGE_NAME: bp-calculator
   FULL_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/bp-calculator:latest
   AZURE_WEBAPP_NAME: bp-calculator-qa
-
-
-#CI JOB
+  AZURE_WEBAPP_STAGING: bp-calculator-prod
+  AZURE_WEBAPP_PROD: bp-calculator-prod
+  AZURE_SLOT_NAME: blue
 jobs:
+  ###########################################################
+  # CI — Build, Tests, Coverage, Security Scan
+  ###########################################################
   build-test-sonar:
     name: CI - Build, Tests, Coverage, SonarCloud
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
       - name: Install Tools
@@ -59,11 +60,11 @@ jobs:
           echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
           sudo apt-get update -y
           sudo apt-get install trivy -y
-      - name: Run Trivy Vulnerability Scan
+      - name: Run Trivy Scan
         run: trivy fs --severity HIGH,CRITICAL --exit-code 1 --no-progress .
       - name: Build
         run: dotnet build --configuration Release --no-restore
-      - name: Publish Web App
+      - name: Publish
         run: dotnet publish BPCalculator/BPCalculator.csproj --configuration Release --output ./published-app
       - name: Run Unit + BDD Tests
         run: |
@@ -73,7 +74,7 @@ jobs:
             --logger "trx;LogFileName=test_results.trx" \
             --no-build \
             --results-directory TestReports
-      - name: Generate OpenCover Coverage
+      - name: Coverage Report
         run: |
           mkdir -p TestReports
           coverlet \
@@ -82,166 +83,188 @@ jobs:
             --targetargs "test BPCalculator.Tests/BPCalculator.Tests.csproj --no-build --configuration Release" \
             --format opencover \
             --output TestReports/coverage.opencover.xml
-      - name: List TestReports
-        run: ls -R TestReports
       - name: SonarCloud End
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: dotnet-sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
-      - name: Upload Test Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-results
-          path: TestReports/
-      - name: Upload Published Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: published-app
           path: published-app/
 
-
-#CD: QA ARTIFACT DOWNLOAD
+  ###########################################################
+  # CD — Download Artifact (QA)
+  ###########################################################
   download:
     name: CD - Download Build Artifact
     runs-on: ubuntu-latest
     needs: build-test-sonar
     if: github.ref == 'refs/heads/QA'
     steps:
-      - name: Download Published App
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: published-app
           path: ./published-app
-      - name: List Downloaded Files
-        run: ls -R ./published-app
 
-
-#CD: BUILD & PUSH IMAGE
+  ###########################################################
+  # CD — Build & Push Docker Image
+  ###########################################################
   docker:
     name: CD - Build & Push Docker Image
     runs-on: ubuntu-latest
     needs: download
     if: github.ref == 'refs/heads/QA'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Login to Docker Hub
         run: echo "${DOCKER_TOKEN}" | docker login -u "${DOCKER_USER}" --password-stdin
-      - name: Build Docker Image
+      - name: Build Image
         run: docker build -t $FULL_IMAGE .
-      - name: Push Docker Image
+      - name: Push Image
         run: docker push $FULL_IMAGE
 
-
-#CD: DEPLOY CONTAINER TO AZURE
+  ###########################################################
+  # CD — Deploy to QA
+  ###########################################################
   deploy:
-    name: CD - Deploy to Azure App Service
+    name: CD - Deploy to QA
     runs-on: ubuntu-latest
     needs: docker
     if: github.ref == 'refs/heads/QA'
     steps:
-      - name: Deploy Container using Publish Profile
-        uses: azure/webapps-deploy@v2
+      - uses: azure/webapps-deploy@v2
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_QA }}
           images: ${{ env.FULL_IMAGE }}
-      - name: Smoke Test After Deployment (Health Check)
+      - name: Health Check QA
         run: |
           URL="https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net/health"
-          echo "Checking health: $URL"
           for i in {1..15}; do
-            echo "Attempt $i..."
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
-            if [ "$STATUS" == "200" ]; then
-              echo "Health Check PASSED (HTTP 200)"
-              exit 0
-            fi
-            echo "Health Check FAILED (Status: $STATUS). Retrying in 10 sec..."
-            sleep 10
+            if [ "$STATUS" == "200" ]; then exit 0; fi
+            sleep 5
           done
-          echo "Health check failed after multiple retries. Deployment unhealthy."
           exit 1
-      - name: Final Status
-        run: |
-          STATUS=$(curl -I -s https://bp-calculator-qa-cbgkg0bfdrdbf4c8.norwayeast-01.azurewebsites.net/health | head -n 1)
-          echo "Final App Response = $STATUS"
 
-# CD: RUN E2E SELENIUM TESTS ON QA                    
+  ###########################################################
+  # CD — Selenium E2E Tests
+  ###########################################################
   e2e-tests:
-    name: CD - Run E2E Selenium Tests on QA
+    name: CD - Run E2E Selenium Tests
     runs-on: ubuntu-latest
     needs: deploy
     if: github.ref == 'refs/heads/QA'
-    
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - name: Install Chrome + ChromeDriver
+      - name: Install Chrome + Driver
         run: |
           sudo apt-get update
           sudo apt-get install -y chromium-browser chromium-chromedriver
-      - name: Ensure TestResults directory exists
-        run: mkdir -p BPCalculator.E2E/TestResults
-      - name: Run Selenium E2E Tests
+      - name: Run E2E Tests
         run: |
+          mkdir -p BPCalculator.E2E/TestResults
           dotnet test BPCalculator.E2E/BPCalculator.E2E.csproj \
             --logger "trx;LogFileName=e2e_results.trx" \
             --results-directory BPCalculator.E2E/TestResults/
-      - name: Upload E2E Test Results
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: e2e-results
           path: BPCalculator.E2E/TestResults/
 
-# CD: RUN LOAD TEST (k6) ON QA
+  ###########################################################
+  # CD — Load Test using k6
+  ###########################################################
   load-test:
-    name: CD - Run Load Test (k6)
+    name: CD - Load Test (k6)
     runs-on: ubuntu-latest
     needs: e2e-tests
     if: github.ref == 'refs/heads/QA'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Install K6
         run: |
           sudo apt-get update
           sudo apt-get install -y gnupg2 ca-certificates
-          # Add K6 signing key properly
           curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
-          # Add K6 repo
           echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
           sudo apt-get update
           sudo apt-get install -y k6
+      - name: Run Load Test
+        run: k6 run loadtest.js
 
-      - name: Run Load Test (k6)
-        run: |
-          echo "Running k6 load test..."
-          k6 run loadtest.js
-      - name: Upload Load Test Results
-        uses: actions/upload-artifact@v4
-        with:
-          name: load-test-results
-          path: ./ # if your script outputs files, update this
-# CD: SECURITY TEST - OWASP ZAP SCAN
+  ###########################################################
+  # CD — OWASP ZAP Security Scan
+  ###########################################################
   zap-scan:
-    name: CD - OWASP ZAP DAST Scan
+    name: CD - OWASP ZAP Scan
     runs-on: ubuntu-latest
-    needs: e2e-tests
+    needs: load-test
     if: github.ref == 'refs/heads/QA'
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-      - name: Run OWASP ZAP Baseline Scan
+      - uses: actions/checkout@v4
+      - name: Run ZAP
         run: |
           chmod +x zap-scan.sh
           ./zap-scan.sh
-      - name: Upload ZAP Security Reports
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: zap-security-report
           path: zap-output/
+
+  ###########################################################
+  # CD — Deploy to STAGING (Blue Slot)
+  ###########################################################
+  deploy-staging:
+    name: CD - Deploy to Staging Slot (Blue)
+    runs-on: ubuntu-latest
+    needs: zap-scan
+    if: github.ref == 'refs/heads/QA'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Staging Slot
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_STAGING }}
+          slot-name: ${{ env.AZURE_SLOT_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_BLUE }}
+          images: ${{ env.FULL_IMAGE }}
+      - name: Staging Health Check
+        run: |
+          URL="https://bp-calculator-prod-blue-a4hfczasfpdwavdt.norwayeast-01.azurewebsites.net/health"
+          for i in {1..15}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+            if [ "$STATUS" == "200" ]; then exit 0; fi
+            sleep 5
+          done
+          exit 1
+
+  ###########################################################
+  # CD — Deploy to PRODUCTION (Manual Approval Required)
+  ###########################################################
+  deploy-prod:
+    name: CD - Deploy to Production
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    environment: production
+    if: github.ref == 'refs/heads/QA'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Production
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_PROD }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_PROD }}
+          images: ${{ env.FULL_IMAGE }}
+      - name: Production Health Check
+        run: |
+          URL="https://bp-calculator-prod-c6f4f9gqbmc0fadn.norwayeast-01.azurewebsites.net/health"
+          for i in {1..15}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" $URL)
+            if [ "$STATUS" == "200" ]; then exit 0; fi
+            sleep 5
+          done
+          exit 1
