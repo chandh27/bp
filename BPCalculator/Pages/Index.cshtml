@@ -28,18 +28,15 @@
 
             @if (ViewData.ModelState.IsValid)
             {
-                <!-- COLOR-CODED RESULT FEATURE -->
-                @{
-                    string category = Model.BP.Category.ToString();
-                    string resultClass = category switch
-                    {
-                        "Low" => "alert alert-primary",
-                        "Ideal" => "alert alert-success",
-                        "PreHigh" => "alert alert-warning",
-                        "High" => "alert alert-danger",
-                        _ => "alert alert-info"
-                    };
-                }
+                string category = Model.BP.Category.ToString();
+                string resultClass = category switch
+                {
+                    "Low"    => "alert alert-primary",
+                    "Ideal"  => "alert alert-success",
+                    "PreHigh"=> "alert alert-warning",
+                    "High"   => "alert alert-danger",
+                    _        => "alert alert-info"
+                };
 
                 <div class="form-group">
                     <p id="ResultText" class="@resultClass" style="font-size:16px; font-weight:bold;">
@@ -59,23 +56,10 @@
             <h5>Blood Pressure Category Guide</h5>
 
             <div style="display:flex; flex-direction:column; gap:10px;">
-
-                <div class="card p-2" style="background:#cce5ff;">
-                    <strong>Low Blood Pressure:</strong> Below 90/60
-                </div>
-
-                <div class="card p-2" style="background:#d4edda;">
-                    <strong>Ideal Blood Pressure:</strong> Around 120/80
-                </div>
-
-                <div class="card p-2" style="background:#fff3cd;">
-                    <strong>Pre-High Blood Pressure:</strong> 120–139 / 80–89
-                </div>
-
-                <div class="card p-2" style="background:#f8d7da;">
-                    <strong>High Blood Pressure:</strong> 140+/90+
-                </div>
-
+                <div class="card p-2" style="background:#cce5ff;"><strong>Low:</strong> Below 90/60</div>
+                <div class="card p-2" style="background:#d4edda;"><strong>Ideal:</strong> Around 120/80</div>
+                <div class="card p-2" style="background:#fff3cd;"><strong>Pre-High:</strong> 120–139 / 80–89</div>
+                <div class="card p-2" style="background:#f8d7da;"><strong>High:</strong> 140+/90+</div>
             </div>
         </div>
 
@@ -85,7 +69,6 @@
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
 
-    <!-- BP Category Preview Script (NEW FEATURE) -->
     <script>
         function getPreviewCategory(sys, dia) {
             if (!sys || !dia) return "";
