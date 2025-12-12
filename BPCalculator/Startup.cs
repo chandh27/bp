@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
@@ -19,14 +16,17 @@ namespace BPCalculator
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        // Add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddRazorPages();
-            services.AddApplicationInsightsTelemetry(); 
+            services.AddApplicationInsightsTelemetry();
+
+            // Register Health Checks
+            services.AddHealthChecks();
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
+        // Configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
@@ -46,6 +46,10 @@ namespace BPCalculator
 
             app.UseEndpoints(endpoints =>
             {
+                // Health endpoint for Azure App Service
+                endpoints.MapHealthChecks("/health");
+
+                // Razor Pages
                 endpoints.MapRazorPages();
             });
         }
