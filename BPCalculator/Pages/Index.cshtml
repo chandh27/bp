@@ -9,30 +9,95 @@
     <div class="col-md-4">
         <form method="post" id="form1">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
             <div class="form-group">
                 <label asp-for="BP.Systolic" class="control-label"></label>
                 <input asp-for="BP.Systolic" id="Systolic" class="form-control" />
                 <span asp-validation-for="BP.Systolic" class="text-danger"></span>
             </div>
+
             <div class="form-group">
                 <label asp-for="BP.Diastolic" class="control-label"></label>
                 <input asp-for="BP.Diastolic" id="Diastolic" class="form-control" />
                 <span asp-validation-for="BP.Diastolic" class="text-danger"></span>
             </div>
+
             <div class="form-group">
                 <button type="submit" id="CalculateButton" class="btn btn-primary">Calculate</button>
             </div>
+
             @if (ViewData.ModelState.IsValid)
             {
+                string category = Model.BP.Category.ToString();
+                string resultClass = category switch
+                {
+                    "Low"    => "alert alert-primary",
+                    "Ideal"  => "alert alert-success",
+                    "PreHigh"=> "alert alert-warning",
+                    "High"   => "alert alert-danger",
+                    _        => "alert alert-info"
+                };
+
                 <div class="form-group">
-                    <p id="ResultText" class="alert alert-info">
+                    <p id="ResultText" class="@resultClass" style="font-size:16px; font-weight:bold;">
                         @Model.BP.Category
                     </p>
                 </div>
             }
         </form>
+
+        <!-- NEW FEATURE: BP Category Preview -->
+        <div id="PreviewBox" class="alert alert-secondary" style="display:none; margin-top:15px;">
+            <strong>Preview Category:</strong> <span id="PreviewText"></span>
+        </div>
+
+        <!-- NEW FEATURE: BP Information Cards -->
+        <div id="InfoCards" style="margin-top:25px;">
+            <h5>Blood Pressure Category Guide</h5>
+
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <div class="card p-2" style="background:#cce5ff;"><strong>Low:</strong> Below 90/60</div>
+                <div class="card p-2" style="background:#d4edda;"><strong>Ideal:</strong> Around 120/80</div>
+                <div class="card p-2" style="background:#fff3cd;"><strong>Pre-High:</strong> 120–139 / 80–89</div>
+                <div class="card p-2" style="background:#f8d7da;"><strong>High:</strong> 140+/90+</div>
+            </div>
+        </div>
+
     </div>
 </div>
+
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+
+    <script>
+        function getPreviewCategory(sys, dia) {
+            if (!sys || !dia) return "";
+            sys = parseInt(sys);
+            dia = parseInt(dia);
+
+            if (sys < 90 || dia < 60) return "Low";
+            if (sys < 120 && dia < 80) return "Ideal";
+            if (sys < 140 || dia < 90) return "Pre-High";
+            return "High";
+        }
+
+        function updatePreview() {
+            let sys = document.getElementById("Systolic").value;
+            let dia = document.getElementById("Diastolic").value;
+            let category = getPreviewCategory(sys, dia);
+
+            let box = document.getElementById("PreviewBox");
+
+            if (category === "") {
+                box.style.display = "none";
+                return;
+            }
+
+            document.getElementById("PreviewText").innerText = category;
+            box.style.display = "block";
+        }
+
+        document.getElementById("Systolic").addEventListener("input", updatePreview);
+        document.getElementById("Diastolic").addEventListener("input", updatePreview);
+    </script>
 }
