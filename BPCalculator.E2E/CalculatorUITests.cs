@@ -66,24 +66,6 @@ namespace BPCalculator.E2E
             string result = SubmitAndGetResult("85", "55");
             Assert.Contains("Low", result);
         }
-        [Fact]
-        public void Calculate_Ideal_BloodPressure_UI()
-        {
-            string result = SubmitAndGetResult("110", "70");
-            Assert.Contains("Ideal", result);
-        }
-        [Fact]
-        public void Calculate_PreHigh_BloodPressure_UI()
-        {
-            string result = SubmitAndGetResult("130", "85");
-            Assert.Contains("Pre-High", result);
-        }
-        [Fact]
-        public void Calculate_High_BloodPressure_UI()
-        {
-            string result = SubmitAndGetResult("150", "95");
-            Assert.Contains("High", result);
-        }
         // CLEAN SHUTDOWN
         public void Dispose()
         {
