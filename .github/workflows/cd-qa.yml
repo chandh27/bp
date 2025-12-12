@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - QA
+      - feature/bp-info-panel
   pull_request:
     branches:
       - master
