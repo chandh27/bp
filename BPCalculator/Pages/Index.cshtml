@@ -9,19 +9,23 @@
     <div class="col-md-4">
         <form method="post" id="form1">
             <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+
             <div class="form-group">
                 <label asp-for="BP.Systolic" class="control-label"></label>
                 <input asp-for="BP.Systolic" id="Systolic" class="form-control" />
                 <span asp-validation-for="BP.Systolic" class="text-danger"></span>
             </div>
+
             <div class="form-group">
                 <label asp-for="BP.Diastolic" class="control-label"></label>
                 <input asp-for="BP.Diastolic" id="Diastolic" class="form-control" />
                 <span asp-validation-for="BP.Diastolic" class="text-danger"></span>
             </div>
+
             <div class="form-group">
                 <button type="submit" id="CalculateButton" class="btn btn-primary">Calculate</button>
             </div>
+
             @if (ViewData.ModelState.IsValid)
             {
                 <div class="form-group">
@@ -31,8 +35,47 @@
                 </div>
             }
         </form>
+
+        <!-- NEW FEATURE: BP Category Preview -->
+        <div id="PreviewBox" class="alert alert-secondary" style="display:none; margin-top:15px;">
+            <strong>Preview Category:</strong> <span id="PreviewText"></span>
+        </div>
     </div>
 </div>
+
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+
+    <!-- BP Category Preview Script (NEW FEATURE) -->
+    <script>
+        function getPreviewCategory(sys, dia) {
+            if (!sys || !dia) return "";
+            sys = parseInt(sys); 
+            dia = parseInt(dia);
+
+            if (sys < 90 || dia < 60) return "Low";
+            if (sys < 120 && dia < 80) return "Ideal";
+            if (sys < 140 || dia < 90) return "Pre-High";
+            return "High";
+        }
+
+        function updatePreview() {
+            let sys = document.getElementById("Systolic").value;
+            let dia = document.getElementById("Diastolic").value;
+            let category = getPreviewCategory(sys, dia);
+
+            let box = document.getElementById("PreviewBox");
+
+            if (category === "") { 
+                box.style.display = "none"; 
+                return; 
+            }
+
+            document.getElementById("PreviewText").innerText = category;
+            box.style.display = "block";
+        }
+
+        document.getElementById("Systolic").addEventListener("input", updatePreview);
+        document.getElementById("Diastolic").addEventListener("input", updatePreview);
+    </script>
 }
